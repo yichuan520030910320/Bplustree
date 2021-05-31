@@ -6,6 +6,10 @@
 #define BPLUSTREE_BPLUSTREE_H
 
 #include <utility>
+#include <iostream>
+#include <string>
+#include <algorithm>
+#include <cstring>
 #include <vector>
 #include <fstream>
 
@@ -92,9 +96,15 @@ namespace sjtu {
             T tempvalue = temp.second;
             int nxtnode = basic.root;
 
+
+            node nmd;
+            f1.seekg(16);
+            f1.read(reinterpret_cast<char *>(&nmd), sizeof(node));
+
+
             f1.seekg(nxtnode);
             f1.read(reinterpret_cast<char *>(&pos), sizeof(node));
-          //  showleaf(pos);
+            //  showleaf(pos);
 
             while (pos.nxt == 0) {
                 int i;
@@ -106,9 +116,62 @@ namespace sjtu {
                 //特判一下
                 f1.seekg(nxtnode);
                 f1.read(reinterpret_cast<char *>(&pos), sizeof(node));
-               // showleaf(pos);
+                // showleaf(pos);
             }
             return nxtnode;
+        }
+
+        vector<value_type> findall() {
+            vector<value_type> ans;
+            ans.clear();
+            if (empty()) {
+                return ans;
+            }
+            node pos;
+            int nxtnode = basic.root;
+
+            f1.seekg(nxtnode);
+            f1.read(reinterpret_cast<char *>(&pos), sizeof(node));
+            //  showleaf(pos);
+            if (pos.nxt == -1) {
+                for (int i = 1; i <= pos.size; ++i) {
+                    value_type read;
+                    f2.close();
+                    f2.open(dataname, ios_base::binary | ios::in | ios::out);
+                    if (!f2) { f2.open(dataname, ios::out | ios::binary); }
+                    f2.seekg(pos.address[i]);
+                    f2.read(reinterpret_cast<char *>(&read), sizeof(value_type));
+                    ans.push_back(read);
+                }
+
+            } else {
+                while (pos.nxt == 0) {
+                    //特判一下
+                    f1.seekg(pos.address[0]);
+                    f1.read(reinterpret_cast<char *>(&pos), sizeof(node));
+                    // showleaf(pos);
+                }
+                while (true) {
+                    for (int i = 1; i <= pos.size; ++i) {
+                        value_type read;
+                        f2.close();
+                        f2.open(dataname, ios_base::binary | ios::in | ios::out);
+                        if (!f2) { f2.open(dataname, ios::out | ios::binary); }
+                        f2.seekg(pos.address[i]);
+                        f2.read(reinterpret_cast<char *>(&read), sizeof(value_type));
+                        ans.push_back(read);
+                    }
+                    if (pos.nxt == -1) break;
+                    f1.seekg(pos.nxt);
+                    f1.read(reinterpret_cast<char *>(&pos), sizeof(node));
+                }
+
+            }
+
+//todo
+            return ans;
+
+
         }
 
         vector<value_type> find(Key tempkey) {
@@ -142,15 +205,20 @@ namespace sjtu {
                 }
                 int pre = leafnode.pre;
                 if (pre == -1) break;
+                pos=pre;
                 f1.seekg(pre);
                 f1.read(reinterpret_cast<char *>(&leafnode), sizeof(node));
                 if (leafnode.info[leafnode.size] < tempkey) break;
             }
+            return ans;
         }
 
         void insert(value_type temp) {
-
-         //   cout<<"insert   "<<temp.first<<"_______________________/debug"<<endl;
+            //cout<<f1.fail()<<"               insert fail"<<endl;
+            node nmd;
+            f1.seekg(16);
+            f1.read(reinterpret_cast<char *>(&nmd), sizeof(node));
+            //   cout<<"insert   "<<temp.first<<"_______________________/debug"<<endl;
 
             Key tempkey = temp.first;
             T tempvalue = temp.second;
@@ -169,17 +237,38 @@ namespace sjtu {
                 basic.root = treeend;
                 f1.seekg(treeend);
                 f1.write(reinterpret_cast<char *>(&node1), sizeof(node));
+
+
+                node nmdb;
+                f1.seekg(16);
+                f1.read(reinterpret_cast<char *>(&nmdb), sizeof(node));
+
                 f2.clear();
                 f2.close();
                 f2.open(dataname, ios_base::binary | ios::in | ios::out);
-                if (!f2) { f2.open(dataname, ios::out | ios::binary);}
+                if (!f2) { f2.open(dataname, ios::out | ios::binary); }
                 f2.seekg(dataend);
                 f2.write(reinterpret_cast<char *>(&temp), sizeof(value_type));
                 f2.seekg(dataend);
                 value_type anstemp;
                 f2.read(reinterpret_cast<char *>(&anstemp), sizeof(value_type));
                 basic.current_size++;
+
+
+
+                f1.close();
+                f1.open(treename, ios_base::binary | ios::in | ios::out);
+                if (!f1) { f1.open(treename, ios::out | ios::binary); }
+                node nmdbl;
+                f1.seekg(16);
+                f1.read(reinterpret_cast<char *>(&nmdbl), sizeof(node));
+               // cout << "fuck" << endl;
+
             } else {
+                node nmd1;
+                f1.seekg(16);
+                f1.read(reinterpret_cast<char *>(&nmd1), sizeof(node));
+
                 node tempnode;
                 int nodepos = searchforleaf(temp, tempnode);//node已经调整为叶子节点，nodepos为该叶子节点的起始地址
                 int i;
@@ -198,8 +287,6 @@ namespace sjtu {
                 tempnode.size++;
                 tempnode.info[i] = tempkey;
                 tempnode.address[i] = dataend;
-
-
 
 
                 f1.seekg(nodepos);
@@ -223,7 +310,6 @@ namespace sjtu {
                     ntr.size = size1;
                     int size2 = MAXNUM - size1;
                     bronode.size = size2;
-
 
 
                     for (int i = 1; i <= size2; ++i) {
@@ -309,11 +395,6 @@ namespace sjtu {
                     f1.read(reinterpret_cast<char *>(&ntr), sizeof(node));
 
 
-
-
-
-
-
                     int i;
                     for (i = 0; i <= ntr.size; ++i) {
                         if (ntr.address[i] == nowadress) break;
@@ -339,7 +420,7 @@ namespace sjtu {
 
 
 
-           // cout<<"     debug in erase   "<<tempval.first<<"___________________"<<endl;
+            // cout<<"     debug in erase   "<<tempval.first<<"___________________"<<endl;
             Key tempkey = tempval.first;
             T tempdata = tempval.second;
             node ntr;
@@ -360,27 +441,27 @@ namespace sjtu {
                             ntr.size--;
                             f1.seekg(erasepos);//修改叶子节点的信息
                             f1.write(reinterpret_cast<char *>(&ntr), sizeof(node));
-                        }
-                    }
-                    if (i == 1) {
-                        changehead(ntr, erasepos, ntr.info[1]);
-                    }
-                    if (erasepos != basic.root) {
-                        eraseadjust(erasepos, ntr);
-                    } else {
-                        //开始小数据的情况
+                            if (i == 1) {
+                                changehead(ntr, erasepos, ntr.info[1]);
+                            }
+                            if (erasepos != basic.root) {
+                                eraseadjust(erasepos, ntr);
+                            } else {
+                                //开始小数据的情况
 
-                        if (ntr.size == 0) {
-                            basic.root = -1;
-                        }
+                                if (ntr.size == 0) {
+                                    basic.root = -1;
+                                }
+                            }
+                            return true;}
                     }
-                    return true;
+
                 }
                 erasepos = ntr.pre;
                 if (erasepos == -1) break;
                 f1.seekg(erasepos);
                 f1.read(reinterpret_cast<char *>(&ntr), sizeof(node));
-                if (ntr.info[ntr.size] < tempdata) break;
+                if (ntr.info[ntr.size] < tempkey) break;
             }
             return false;
         }
@@ -407,7 +488,6 @@ namespace sjtu {
                 }
             }
         }
-
 
 
         //todo still have problems
@@ -461,13 +541,13 @@ namespace sjtu {
 
 
                             //todo
-                            for (int i = nownode.size+n; i >nownode.size ; --i) {
-                                nownode.info[i]=nownode.info[i-nownode.size];
-                                nownode.address[i]=nownode.address[i-nownode.size];
+                            for (int i = nownode.size + n; i > nownode.size; --i) {
+                                nownode.info[i] = nownode.info[i - nownode.size];
+                                nownode.address[i] = nownode.address[i - nownode.size];
                             }
-                            for (int i = 1; i <=n ; ++i) {
-                                nownode.info[i]=lbro.info[lbro.size-n+i];
-                                nownode.address[i]=lbro.address[lbro.size-n+i];
+                            for (int i = 1; i <= n; ++i) {
+                                nownode.info[i] = lbro.info[lbro.size - n + i];
+                                nownode.address[i] = lbro.address[lbro.size - n + i];
                             }
 
 
@@ -494,7 +574,7 @@ namespace sjtu {
                                 if (fa.address[i] == nowpos) break;
                             }
                             //bug in 5/29 10:59
-                            fa.info[i ] = nownode.info[1];
+                            fa.info[i] = nownode.info[1];
                             f1.seekg(nownode.fa);
                             f1.write(reinterpret_cast<char *>(&fa), sizeof(node));
                             break;
@@ -519,7 +599,7 @@ namespace sjtu {
                             f1.write(reinterpret_cast<char *>(&temp), sizeof(node));
                         }
                         f1.seekg(nowpos);
-                        f1.write(reinterpret_cast<char*>(&nownode),sizeof (node));
+                        f1.write(reinterpret_cast<char *>(&nownode), sizeof(node));
                         //modify the current floor
 
 
@@ -549,7 +629,7 @@ namespace sjtu {
                         }
                         nowpos = nownode.fa;
                         f1.seekg(nowpos);
-                        nownode=fa;
+                        nownode = fa;
                         f1.write(reinterpret_cast<char *>(&nownode), sizeof(node));
                         continue;
                     }
@@ -578,7 +658,7 @@ namespace sjtu {
                             basic.head_leaf = nowpos;
                         }
                         f1.seekg(nowpos);
-                        f1.write(reinterpret_cast<char*>(&nownode),sizeof (node));
+                        f1.write(reinterpret_cast<char *>(&nownode), sizeof(node));
 
 
 
@@ -586,12 +666,12 @@ namespace sjtu {
 
                         int fatemppos = nownode.fa;
                         f1.seekg(fatemppos);
-                        f1.read(reinterpret_cast<char*>(&fa), sizeof(node));
+                        f1.read(reinterpret_cast<char *>(&fa), sizeof(node));
                         int i;
                         for (i = 0; i <= fa.size; ++i) {
                             if (fa.address[i] == nowpos) break;
                         }
-                        fa.info[i]=fa.info[i-1];//精髓
+                        fa.info[i] = fa.info[i - 1];//精髓
                         for (int j = i - 1; j <= fa.size - 1; ++j) {
                             fa.address[j] = fa.address[j + 1];
                             fa.info[j] = fa.info[j + 1];
@@ -612,7 +692,7 @@ namespace sjtu {
                         }
                         nowpos = nownode.fa;
                         f1.seekg(nowpos);
-                        nownode=fa;
+                        nownode = fa;
                         f1.write(reinterpret_cast<char *>(&nownode), sizeof(node));
                         continue;
                     }
@@ -645,10 +725,10 @@ namespace sjtu {
                             trmpborrow.fa = nowpos;
                             f1.seekg(borrow_pos);
                             f1.write(reinterpret_cast<char *>(&trmpborrow), sizeof(node));
-                            Key borrowkey = fa.info[i+1];
-                            fa.info[i+1]=internal_right.info[1];
+                            Key borrowkey = fa.info[i + 1];
+                            fa.info[i + 1] = internal_right.info[1];
                             f1.seekg(fapos);
-                            f1.write(reinterpret_cast<char*>(&fa),sizeof (node));
+                            f1.write(reinterpret_cast<char *>(&fa), sizeof(node));
                             for (int j = 0; j <= internal_right.size - 1; ++j) {
                                 internal_right.address[j] = internal_right.address[j + 1];
                             }
@@ -687,12 +767,10 @@ namespace sjtu {
                             f1.write(reinterpret_cast<char *>(&trmpborrow), sizeof(node));
 
 
-
-
                             Key borrowkey = fa.info[i];
-                            fa.info[i]=internal_left.info[internal_left.size];
+                            fa.info[i] = internal_left.info[internal_left.size];
                             f1.seekg(fapos);
-                            f1.write(reinterpret_cast<char*>(&fa),sizeof (node));//bug for 3.5hours
+                            f1.write(reinterpret_cast<char *>(&fa), sizeof(node));//bug for 3.5hours
                             internal_left.size--;
                             f1.seekg(fa.address[i - 1]);
                             f1.write(reinterpret_cast<char *>(&internal_left), sizeof(node));
@@ -734,7 +812,7 @@ namespace sjtu {
                         }
                         nownode.info[nownode.size] = fa.info[i + 1];
                         nownode.size += internal_right.size;
-                        fa_pos=nownode.fa;
+                        fa_pos = nownode.fa;
                         f1.seekg(nowpos);
                         f1.write(reinterpret_cast<char *>(&nownode), sizeof(node));
                         nownode = fa;
@@ -765,7 +843,7 @@ namespace sjtu {
                             nownode.info[internal_left.size + 1 + j] = nownode.info[j];
                             nownode.address[internal_left.size + 1 + j] = nownode.address[j];
                         }
-                        fa_pos=nownode.fa;
+                        fa_pos = nownode.fa;
                         for (int j = 0; j <= internal_left.size; ++j) {
                             nownode.info[j] = internal_left.info[j];
                             nownode.address[j] = internal_left.address[j];
@@ -788,7 +866,7 @@ namespace sjtu {
                         f1.seekg(nowpos);
                         f1.write(reinterpret_cast<char *>(&nownode), sizeof(node));
                         nownode = fa;
-                        nownode.info[i ] = nownode.info[i-1];
+                        nownode.info[i] = nownode.info[i - 1];
 
                         //todo
                         for (int j = i - 1; j < nownode.size; ++j) {
@@ -816,14 +894,15 @@ namespace sjtu {
                 }
             }
         }
-        void showleaf(node a){
-            cout<<"_____________________________/debug node"<<endl;
-            cout<<"size:    "<<a.size<<"     pre:"<<a.pre<<"    nxt:"<<a.nxt<<endl;
-            for (int i = 0; i <=a.size ; ++i) {
-                cout<<"  pos:"<<i<<"    address[]"<<a.address[i]<<"     info:"<<a.info[i]<<endl;
+
+        void showleaf(node a) {
+            cout << "_____________________________/debug node" << endl;
+            cout << "size:    " << a.size << "     pre:" << a.pre << "    nxt:" << a.nxt << endl;
+            for (int i = 0; i <= a.size; ++i) {
+                cout << "  pos:" << i << "    address[]" << a.address[i] << "     info:" << a.info[i] << endl;
             }
-            cout<<"_____________________________/debug node"<<endl;
-            cout<<endl;
+            cout << "_____________________________/debug node" << endl;
+            cout << endl;
         }
 
     public:
@@ -833,7 +912,9 @@ namespace sjtu {
         treebasic_info basic;
         string treename, dataname;
 
-        BPtree() {};
+        BPtree() {
+
+        };
 
         BPtree(string a, string b) {
             treename = a, dataname = b;
@@ -844,6 +925,7 @@ namespace sjtu {
             f1.seekg(0, ios::end);
             int head_search = f1.tellg();
             if (head_search == 0) {
+
                 treebasic_info temp;
                 f1.close();
                 f1.open(a, ios_base::binary | ios::in | ios::out);
@@ -851,7 +933,6 @@ namespace sjtu {
                 f1.seekg(0);
                 f1.write(reinterpret_cast<char *>(&temp), sizeof(treebasic_info));
                 f1.seekg(0, ios::end);
-
 
             } else {
 
